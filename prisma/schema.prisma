@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VENDOR
+  WHOLESALER
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+enum CommissionStatus {
+  PENDING
+  COLLECTED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  role         Role
+  vendorProfile   Vendor?
+  wholesalerProfile Wholesaler?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Vendor {
+  id           String      @id @default(cuid())
+  userId       String      @unique
+  user         User        @relation(fields: [userId], references: [id])
+  businessName String
+  phone        String
+  featured     Boolean     @default(false)
+  clients      Client[]
+  vendorProducts VendorProduct[]
+  customProducts CustomProduct[]
+  transactions Transaction[]
+  ordersAsVendor Order[]   @relation("OrderVendor")
+  createdAt    DateTime    @default(now())
+}
+
+model Wholesaler {
+  id           String      @id @default(cuid())
+  userId       String      @unique
+  user         User        @relation(fields: [userId], references: [id])
+  businessName String
+  phone        String
+  featured     Boolean     @default(false)
+  wholesalerProducts WholesalerProduct[]
+  customProducts CustomProduct[]
+  orders       Order[]
+  createdAt    DateTime    @default(now())
+}
+
+model Client {
+  id                String      @id @default(cuid())
+  vendorId          String
+  vendor            Vendor      @relation(fields: [vendorId], references: [id])
+  name              String
+  phone             String
+  email             String?
+  debtBalance       Int         @default(0)
+  preferredLanguage String      @default("fr")
+  createdAt         DateTime    @default(now())
+  transactions      Transaction[]
+  smsLogs           SmsLog[]
+
+  @@unique([vendorId, phone])
+}
+
+model DefaultProduct {
+  id           String      @id @default(cuid())
+  nameFr       String
+  nameWolof    String
+  category     String
+  unit         String
+  defaultPrice Int
+  imageUrl     String?
+  createdAt    DateTime    @default(now())
+  sponsoredProducts SponsoredProduct[]
+}
+
+model CustomProduct {
+  id           String      @id @default(cuid())
+  vendorId     String?
+  wholesalerId String?
+  name         String
+  nameWolof    String?
+  unit         String
+  price        Int
+  stock        Int         @default(0)
+  imageUrl     String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  vendor       Vendor?     @relation(fields: [vendorId], references: [id])
+  wholesaler   Wholesaler? @relation(fields: [wholesalerId], references: [id])
+}
+
+model VendorProduct {
+  id           String      @id @default(cuid())
+  vendorId     String
+  vendor       Vendor      @relation(fields: [vendorId], references: [id])
+  productId    String
+  productType  String
+  price        Int
+  stock        Int         @default(0)
+  lowStockAlert Int        @default(5)
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([vendorId, productId, productType])
+}
+
+model WholesalerProduct {
+  id           String      @id @default(cuid())
+  wholesalerId String
+  wholesaler   Wholesaler  @relation(fields: [wholesalerId], references: [id])
+  productId    String
+  productType  String
+  price        Int
+  conditioning String
+  stock        Int         @default(0)
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([wholesalerId, productId, productType])
+}
+
+model Transaction {
+  id              String      @id @default(cuid())
+  vendorId        String
+  vendor          Vendor      @relation(fields: [vendorId], references: [id])
+  clientId        String
+  client          Client      @relation(fields: [clientId], references: [id])
+  items           Json
+  totalCents      Int
+  paymentStatus   PaymentStatus
+  amountPaid      Int         @default(0)
+  remaining       Int         @default(0)
+  platformFeeCents Int        @default(0)
+  hash            String      @unique
+  vendorIp        String?
+  createdAt       DateTime    @default(now())
+  payments        Payment[]
+  commissions     PlatformCommission[]
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  amountCents   Int
+  previousDebt  Int
+  newDebt       Int
+  createdAt     DateTime    @default(now())
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  wholesalerId String
+  wholesaler   Wholesaler  @relation(fields: [wholesalerId], references: [id])
+  vendorId     String
+  vendor       Vendor      @relation("OrderVendor", fields: [vendorId], references: [id])
+  items        Json
+  status       OrderStatus @default(PENDING)
+  totalCents   Int
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model SmsLog {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  phone     String
+  message   String
+  language  String
+  status    String
+  sentAt    DateTime @default(now())
+}
+
+model PlatformCommission {
+  id            String           @id @default(cuid())
+  transactionId String
+  transaction   Transaction      @relation(fields: [transactionId], references: [id])
+  amountCents   Int
+  status        CommissionStatus @default(PENDING)
+  collectedAt   DateTime?
+  createdAt     DateTime         @default(now())
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  vendorId     String?
+  wholesalerId String?
+  month        DateTime
+  totalCents   Int
+  status       InvoiceStatus @default(UNPAID)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+model SponsoredProduct {
+  id               String         @id @default(cuid())
+  defaultProductId String
+  defaultProduct   DefaultProduct @relation(fields: [defaultProductId], references: [id])
+  startDate        DateTime
+  endDate          DateTime
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+}
+
+model DataSubscription {
+  id           String   @id @default(cuid())
+  companyName  String
+  contactEmail String
+  startDate    DateTime
+  endDate      DateTime
+  monthlyFee   Int
+  active       Boolean  @default(true)
+}
+
+model ClickTracking {
+  id        String   @id @default(cuid())
+  vendorId  String
+  linkType  String
+  url       String
+  createdAt DateTime @default(now())
+}
