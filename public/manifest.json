@@ -1,0 +1,22 @@
+{
+  "name": "Bor-Bi par TransTech Solution",
+  "short_name": "Bor-Bi",
+  "description": "Gestion simplifiée pour commerçants - Bor-Bi par TransTech Solution",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3a8a",
+  "theme_color": "#1e3a8a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
